@@ -1,0 +1,12 @@
+﻿  main.cpp
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(124,28): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(250,17): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(251,17): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(255,19): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(256,19): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(258,13): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(259,13): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(266,31): warning C4244: аргумент: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(281,16): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+C:\Users\User\Documents\OpenGL\Project\Engine\Engine\main.cpp(282,16): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+  Engine.vcxproj -> C:\Users\User\Documents\OpenGL\Project\Engine\x64\Debug\Engine.exe
