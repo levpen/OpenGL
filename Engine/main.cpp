@@ -20,7 +20,8 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 unsigned int texturePreparation(std::string img_source, bool rgb, const int GL_TEXTURE_NUM);
-void glmShit(Shader& shader);
+void setShaderMatrices(Shader& shader, glm::mat4& model, glm::mat4& view, glm::mat4& projection);
+glm::mat3 computeNormalMat(glm::mat4& model);
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -49,6 +50,7 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
+    //Callbacks
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
@@ -61,12 +63,17 @@ int main()
         return -1;
     }
 
+    // configure global opengl state
+    // -----------------------------
+    glEnable(GL_DEPTH_TEST);
+
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
     unsigned int texture = texturePreparation("container.jpg", true, GL_TEXTURE0);
     unsigned int texture1 = texturePreparation("awesomeface.png", false, GL_TEXTURE1);
 
     Shader ourShader("./VertexShader.vert", "./FragmentShader.frag");
+    Shader lightCubeShader("./VertexShader.vert", "./LightSource.frag");
 
     unsigned int VBO, EBO, VAO;
     glGenBuffers(1, &VBO);
@@ -82,21 +89,43 @@ int main()
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
     // 3. then set our vertex attributes pointers
-    short stride = 5 * sizeof(float);
+    short stride = 6 * sizeof(float);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3* sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
     //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
     //glEnableVertexAttribArray(2);
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    //LightSource
+    unsigned int lightVAO;
+    glGenVertexArrays(1, &lightVAO);
+    glBindVertexArray(lightVAO);
+    // we only need to bind to the VBO, the container's VBO's data already contains the data.
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // set the vertex attribute 
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
     ourShader.use();
-    glEnable(GL_DEPTH_TEST);
 
     //unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+    ourShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
+    ourShader.setVec3("light.position", lightPos);
+    ourShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+    ourShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+    ourShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
+    ourShader.setFloat("material.shininess", 32.0f);
+    ourShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+    ourShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f); // darken diffuse light a bit
+    ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 
-    ourShader.setInt("texture1", 0);
-    ourShader.setInt("texture2", 1);
+    //ourShader.setInt("texture1", 0);
+    //ourShader.setInt("texture2", 1);
 
     //MOUSE HIDE
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -108,9 +137,10 @@ int main()
         lastFrame = currentFrame;
         // input
         processInput(window);
+        ourShader.setVec3("viewPos", camera.Position);
 
         // rendering commands here
-        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // now render the triangle
@@ -119,20 +149,54 @@ int main()
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture1);
         
-        glmShit(ourShader);
+        ourShader.use();
+        //lightPos = glm::vec3(sin((float)glfwGetTime()), cos((float)glfwGetTime()), lightPos.z);
+        glm::mat4 model = glm::mat4(1.0f);
 
-        glBindVertexArray(VAO);
+        glm::mat4 view = glm::mat4(1.0f);
+        view = camera.GetViewMatrix();
+
+        glm::mat4 projection;
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        //glDrawArrays(GL_TRIANGLES, 0, 36);
+
         //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glm::vec3 lightColor;
+        lightColor.x = sin(glfwGetTime() * 2.0f);
+        lightColor.y = sin(glfwGetTime() * 0.7f);
+        lightColor.z = sin(glfwGetTime() * 1.3f);
+
+        glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+        glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+
+        ourShader.setVec3("light.ambient", ambientColor);
+        ourShader.setVec3("light.diffuse", diffuseColor);
+        
         for (unsigned int i = 0; i < 10; i++)
         {
-            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
             float angle = 20.0f * i;
-            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-            ourShader.setMat4("model", model);
+            model = glm::rotate(model, (float)glfwGetTime() * glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            setShaderMatrices(ourShader, model, view, projection);
+            //ourShader.setVec3("light.position", lightPos);
+            ourShader.setMat3("normalMat", computeNormalMat(model));
 
+            glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+        
+
+        lightCubeShader.use();
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.2f));
+        setShaderMatrices(lightCubeShader, model, view, projection);
+
+        glBindVertexArray(lightVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        
         //glDrawArrays(GL_TRIANGLES, 0, 36);
         //glBindVertexArray(0);
 
@@ -202,26 +266,10 @@ unsigned int texturePreparation(std::string img_source, bool rgb, const int GL_T
     return texture;
 }
 
-void glmShit(Shader& ourShader) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
-
-    glm::mat4 view = glm::mat4(1.0f);
-    // note that we're translating the scene in the reverse direction of where we want to move
-    //view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-    view = camera.GetViewMatrix();
-
-    glm::mat4 projection;
-    projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-
-    int modelLoc = glGetUniformLocation(ourShader.ID, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
-    int viewLoc = glGetUniformLocation(ourShader.ID, "view");
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    
-    int projectionLoc = glGetUniformLocation(ourShader.ID, "projection");
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+void setShaderMatrices(Shader& ourShader, glm::mat4& model, glm::mat4& view, glm::mat4& projection) {
+    ourShader.setMat4("projection", projection);
+    ourShader.setMat4("view", view);
+    ourShader.setMat4("model", model);
 }
 
 bool firstMouse = true;
@@ -256,4 +304,8 @@ glm::mat4 cameraVectors() {
     view = glm::lookAt(glm::vec3(camX, 0.0, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
 
     return view;
+}
+
+glm::mat3 computeNormalMat(glm::mat4& model) {
+    return glm::transpose(glm::inverse(model));
 }
