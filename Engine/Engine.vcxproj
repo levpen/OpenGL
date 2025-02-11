@@ -146,6 +146,7 @@
   <ItemGroup>
     <None Include="FragmentShader.frag" />
     <None Include="LightSource.frag" />
+    <None Include="LightSource.vert" />
     <None Include="VertexShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

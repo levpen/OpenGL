@@ -69,16 +69,18 @@ int main()
 
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
-    unsigned int texture = texturePreparation("container.jpg", true, GL_TEXTURE0);
-    unsigned int texture1 = texturePreparation("awesomeface.png", false, GL_TEXTURE1);
+    unsigned int diffuseMap = texturePreparation("container2.png", false, GL_TEXTURE0);
+    unsigned int specularMap = texturePreparation("container2_specular.png", false, GL_TEXTURE0);
+    //unsigned int texture = texturePreparation("container.jpg", true, GL_TEXTURE0);
+    //unsigned int texture1 = texturePreparation("awesomeface.png", false, GL_TEXTURE1);
 
     Shader ourShader("./VertexShader.vert", "./FragmentShader.frag");
-    Shader lightCubeShader("./VertexShader.vert", "./LightSource.frag");
+    Shader lightCubeShader("./LightSource.vert", "./LightSource.frag");
 
     unsigned int VBO, EBO, VAO;
-    glGenBuffers(1, &VBO);
     //glGenBuffers(1, &EBO);
     glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
     // 1. bind Vertex Array Object
     glBindVertexArray(VAO);
@@ -89,12 +91,13 @@ int main()
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
     // 3. then set our vertex attributes pointers
-    short stride = 6 * sizeof(float);
+    short stride = 8 * sizeof(float);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3* sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
     //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     //glEnableVertexAttribArray(1);
     //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
@@ -108,21 +111,29 @@ int main()
     // we only need to bind to the VBO, the container's VBO's data already contains the data.
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     // set the vertex attribute 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
 
     ourShader.use();
 
     //unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
-    ourShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
+    ourShader.setVec3("objectColor", 1.0f, 1.0f, 1.0f);
     ourShader.setVec3("light.position", lightPos);
-    ourShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
-    ourShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
-    ourShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
-    ourShader.setFloat("material.shininess", 32.0f);
+    //ourShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+    //ourShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+    ourShader.setInt("material.specular", 1);
+    ourShader.setFloat("material.shininess", 64.0f);
+    ourShader.setInt("material.diffuse", 0);
+
     ourShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
     ourShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f); // darken diffuse light a bit
     ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, specularMap);
+
+
 
     //ourShader.setInt("texture1", 0);
     //ourShader.setInt("texture2", 1);
@@ -140,14 +151,13 @@ int main()
         ourShader.setVec3("viewPos", camera.Position);
 
         // rendering commands here
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // now render the triangle
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture1);
+
+        //glActiveTexture(GL_TEXTURE1);
+        //glBindTexture(GL_TEXTURE_2D, texture1);
         
         ourShader.use();
         //lightPos = glm::vec3(sin((float)glfwGetTime()), cos((float)glfwGetTime()), lightPos.z);
@@ -158,19 +168,27 @@ int main()
 
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        //glDrawArrays(GL_TRIANGLES, 0, 36);
+            
+        /*setShaderMatrices(ourShader, model, view, projection);
 
-        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glm::vec3 lightColor;
+        ourShader.setMat3("normalMat", computeNormalMat(model));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);*/
+
+        /*glm::vec3 lightColor;
         lightColor.x = sin(glfwGetTime() * 2.0f);
         lightColor.y = sin(glfwGetTime() * 0.7f);
-        lightColor.z = sin(glfwGetTime() * 1.3f);
+        lightColor.z = sin(glfwGetTime() * 1.3f);*/
 
-        glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+        /*glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
         glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
 
         ourShader.setVec3("light.ambient", ambientColor);
-        ourShader.setVec3("light.diffuse", diffuseColor);
+        ourShader.setVec3("light.diffuse", diffuseColor);*/
         
         for (unsigned int i = 0; i < 10; i++)
         {
@@ -181,7 +199,7 @@ int main()
             setShaderMatrices(ourShader, model, view, projection);
             //ourShader.setVec3("light.position", lightPos);
             ourShader.setMat3("normalMat", computeNormalMat(model));
-
+            
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
@@ -196,15 +214,13 @@ int main()
 
         glBindVertexArray(lightVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        
-        //glDrawArrays(GL_TRIANGLES, 0, 36);
-        //glBindVertexArray(0);
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
     glDeleteVertexArrays(1, &VAO);
+    glDeleteVertexArrays(1, &lightVAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
 

@@ -46,5 +46,6 @@
     <None Include="VertexShader.vert" />
     <None Include="FragmentShader.frag" />
     <None Include="LightSource.frag" />
+    <None Include="LightSource.vert" />
   </ItemGroup>
 </Project>
