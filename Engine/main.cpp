@@ -11,8 +11,8 @@
 
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1920;
+const unsigned int SCR_HEIGHT = 1080;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f);
 
@@ -118,24 +118,34 @@ int main()
 
     //unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
     ourShader.setVec3("objectColor", 1.0f, 1.0f, 1.0f);
-    ourShader.setVec3("light.position", lightPos);
-    //ourShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
-    //ourShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+
     ourShader.setInt("material.specular", 1);
     ourShader.setFloat("material.shininess", 64.0f);
     ourShader.setInt("material.diffuse", 0);
 
-    ourShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-    ourShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f); // darken diffuse light a bit
-    ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-    //ourShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
+    ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+    ourShader.setVec3("dirLight.diffuse", 0.5f, 1.0f, 0.5f); // darken diffuse light a bit
+    ourShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+    ourShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
     
-    ourShader.setFloat("light.constant", 1.0f);
-    ourShader.setFloat("light.linear", 0.09f);
-    ourShader.setFloat("light.quadratic", 0.032f);
+    for (int i = 0; i < 4; ++i)
+    {
+        auto str = "pointLights[" + std::to_string(i) + "].";
+        ourShader.setFloat(str + "constant", 1.0f);
+        ourShader.setFloat(str +"linear", 0.09f);
+        ourShader.setFloat(str + "quadratic", 0.032f);
 
-    ourShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
-    ourShader.setFloat("light.outerCutOff", glm::cos(glm::radians(18.5f)));
+        ourShader.setVec3(str + "ambient", 0.2f, 0.2f, 0.2f);
+        ourShader.setVec3(str + "diffuse", 1.0f, 0.5f, 0.5f);
+        ourShader.setVec3(str + "specular", 1.0f, 1.0f, 1.0f);
+
+        ourShader.setVec3(str + "position", pointLightPositions[i]);
+
+    }
+
+
+    //ourShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
+    //ourShader.setFloat("light.outerCutOff", glm::cos(glm::radians(18.5f)));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseMap);
@@ -160,7 +170,7 @@ int main()
         ourShader.setVec3("viewPos", camera.Position);
 
         // rendering commands here
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // now render the triangle
@@ -178,8 +188,8 @@ int main()
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-        ourShader.setVec3("light.position", camera.Position);
-        ourShader.setVec3("light.direction", camera.Front);
+        //ourShader.setVec3("light.position", camera.Position);
+        //ourShader.setVec3("light.direction", camera.Front);
             
         /*setShaderMatrices(ourShader, model, view, projection);
 
@@ -218,15 +228,18 @@ int main()
         
 
         lightCubeShader.use();
+        lightCubeShader.setVec3("lightColor", 1.0f, 0.5f, 0.5f);
 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f));
-        setShaderMatrices(lightCubeShader, model, view, projection);
+        for (short i = 0; i < 4; ++i)
+        {
 
-        glBindVertexArray(lightVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, pointLightPositions[i]);
+            model = glm::scale(model, glm::vec3(0.2f));
+            setShaderMatrices(lightCubeShader, model, view, projection);
+            glBindVertexArray(lightVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
