@@ -128,6 +128,15 @@ int main()
     ourShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
     ourShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f); // darken diffuse light a bit
     ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+    //ourShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
+    
+    ourShader.setFloat("light.constant", 1.0f);
+    ourShader.setFloat("light.linear", 0.09f);
+    ourShader.setFloat("light.quadratic", 0.032f);
+
+    ourShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
+    ourShader.setFloat("light.outerCutOff", glm::cos(glm::radians(18.5f)));
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseMap);
     glActiveTexture(GL_TEXTURE1);
@@ -168,6 +177,9 @@ int main()
 
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+        ourShader.setVec3("light.position", camera.Position);
+        ourShader.setVec3("light.direction", camera.Front);
             
         /*setShaderMatrices(ourShader, model, view, projection);
 
