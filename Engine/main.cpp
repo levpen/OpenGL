@@ -8,11 +8,13 @@
 #include <glm/glm/gtc/type_ptr.hpp>
 #include "Constants.h"
 #include "Camera.h"
+#include "Model.h"
+#include <filesystem>
 
 
 // settings
-const unsigned int SCR_WIDTH = 1920;
-const unsigned int SCR_HEIGHT = 1080;
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f);
 
@@ -76,6 +78,8 @@ int main()
 
     Shader ourShader("./VertexShader.vert", "./FragmentShader.frag");
     Shader lightCubeShader("./LightSource.vert", "./LightSource.frag");
+
+    Model backpack("./backpack/backpack.obj");
 
     unsigned int VBO, EBO, VAO;
     //glGenBuffers(1, &EBO);
@@ -147,10 +151,7 @@ int main()
     //ourShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
     //ourShader.setFloat("light.outerCutOff", glm::cos(glm::radians(18.5f)));
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, diffuseMap);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, specularMap);
+    
 
 
 
@@ -167,11 +168,13 @@ int main()
         lastFrame = currentFrame;
         // input
         processInput(window);
+
         ourShader.setVec3("viewPos", camera.Position);
 
         // rendering commands here
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 
         // now render the triangle
 
@@ -179,14 +182,25 @@ int main()
         //glBindTexture(GL_TEXTURE_2D, texture1);
         
         ourShader.use();
+
+
         //lightPos = glm::vec3(sin((float)glfwGetTime()), cos((float)glfwGetTime()), lightPos.z);
         glm::mat4 model = glm::mat4(1.0f);
+
+        model = glm::translate(model, glm::vec3(-1.0f, 5.0f, 1.0f));
 
         glm::mat4 view = glm::mat4(1.0f);
         view = camera.GetViewMatrix();
 
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+        setShaderMatrices(ourShader, model, view, projection);
+
+        ourShader.setMat3("normalMat", computeNormalMat(model));
+
+        backpack.Draw(ourShader);
+
 
         //ourShader.setVec3("light.position", camera.Position);
         //ourShader.setVec3("light.direction", camera.Front);
@@ -211,7 +225,10 @@ int main()
 
         ourShader.setVec3("light.ambient", ambientColor);
         ourShader.setVec3("light.diffuse", diffuseColor);*/
-        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
         for (unsigned int i = 0; i < 10; i++)
         {
             model = glm::mat4(1.0f);
@@ -225,14 +242,13 @@ int main()
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
-        
+        //
 
         lightCubeShader.use();
         lightCubeShader.setVec3("lightColor", 1.0f, 0.5f, 0.5f);
 
         for (short i = 0; i < 4; ++i)
         {
-
             model = glm::mat4(1.0f);
             model = glm::translate(model, pointLightPositions[i]);
             model = glm::scale(model, glm::vec3(0.2f));
