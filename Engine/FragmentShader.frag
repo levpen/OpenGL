@@ -40,6 +40,10 @@ uniform PointLight pointLights[NR_POINT_LIGHTS];
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
+float LinearizeDepth(float depth);
+
+float near = 0.1; 
+float far  = 100.0;
 
 void main()
 {
@@ -56,6 +60,12 @@ void main()
     //result += CalcSpotLight(spotLight, norm, FragPos, viewDir);
     
     FragColor = vec4(result, 1.0);
+
+
+
+    //Depth values(for fun)
+    //float depth = LinearizeDepth(gl_FragCoord.z) / far;
+    //FragColor = vec4(vec3(depth), 1.0);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)
@@ -93,4 +103,10 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     diffuse  *= attenuation;
     specular *= attenuation;
     return (ambient + diffuse + specular);
+}
+
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
 }

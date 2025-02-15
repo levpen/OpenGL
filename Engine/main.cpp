@@ -68,6 +68,11 @@ int main()
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    glEnable(GL_STENCIL_TEST);
+    //glStencilMask(0x00);
+    //glStencilFunc(GL_EQUAL, 1, 0xFF);
 
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
@@ -168,26 +173,15 @@ int main()
         lastFrame = currentFrame;
         // input
         processInput(window);
-
         ourShader.setVec3("viewPos", camera.Position);
 
         // rendering commands here
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        //Disable stencil rewrite
+        glStencilMask(0x00);
 
-
-        // now render the triangle
-
-        //glActiveTexture(GL_TEXTURE1);
-        //glBindTexture(GL_TEXTURE_2D, texture1);
-        
-        ourShader.use();
-
-
-        //lightPos = glm::vec3(sin((float)glfwGetTime()), cos((float)glfwGetTime()), lightPos.z);
         glm::mat4 model = glm::mat4(1.0f);
-
-        model = glm::translate(model, glm::vec3(-1.0f, 5.0f, 1.0f));
 
         glm::mat4 view = glm::mat4(1.0f);
         view = camera.GetViewMatrix();
@@ -195,11 +189,11 @@ int main()
         glm::mat4 projection;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-        setShaderMatrices(ourShader, model, view, projection);
+        ourShader.use();
 
-        ourShader.setMat3("normalMat", computeNormalMat(model));
+        
 
-        backpack.Draw(ourShader);
+
 
 
         //ourShader.setVec3("light.position", camera.Position);
@@ -242,8 +236,7 @@ int main()
             glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
-        //
-
+        //Light cubes render
         lightCubeShader.use();
         lightCubeShader.setVec3("lightColor", 1.0f, 0.5f, 0.5f);
 
@@ -256,6 +249,36 @@ int main()
             glBindVertexArray(lightVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+
+        //Backpack render
+        ourShader.use();
+
+        model = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 5.0f, 1.0f));
+
+        setShaderMatrices(ourShader, model, view, projection);
+
+        ourShader.setMat3("normalMat", computeNormalMat(model));
+
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+
+        backpack.Draw(ourShader);
+
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00); // disable writing to the stencil buffer
+        glDisable(GL_DEPTH_TEST);
+        lightCubeShader.use();
+        model = glm::scale(model, glm::vec3(1.2f));
+        ourShader.setMat4("model", model);
+
+        backpack.Draw(lightCubeShader);
+
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glEnable(GL_DEPTH_TEST);
+
+
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
