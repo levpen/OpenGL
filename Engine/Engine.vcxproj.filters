@@ -53,5 +53,6 @@
     <None Include="FragmentShader.frag" />
     <None Include="LightSource.frag" />
     <None Include="LightSource.vert" />
+    <None Include="BasicFragmentShader.frag" />
   </ItemGroup>
 </Project>
