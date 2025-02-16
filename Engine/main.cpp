@@ -25,6 +25,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 
 
 void render_with_border(Model& object, Shader& modelShader, Shader& borderShader);
 
+void render_opaque_objects(vector<glm::vec3>& objects, Shader& alphaShader, unsigned int objectsVAO, unsigned int objectTexture);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 unsigned int texturePreparation(std::string img_source, bool rgb, const int GL_TEXTURE_NUM, bool has_alpha = false);
@@ -104,6 +105,7 @@ int main()
     Shader ourShader("./VertexShader.vert", "./FragmentShader.frag");
     Shader lightCubeShader("./LightSource.vert", "./LightSource.frag");
     Shader alphaShader("./VertexShader.vert", "./BasicFragmentShader.frag");
+    Shader screenShader("./Framebuffer.vert", "./Postprocess.frag");
 
     Model backpack("./backpack/backpack.obj");
 
@@ -148,7 +150,6 @@ int main()
     unsigned vegetationVAO, vegetationVBO;
     glGenVertexArrays(1, &vegetationVAO);
     glGenBuffers(1, &vegetationVBO);
-
     glBindVertexArray(vegetationVAO);
     glBindBuffer(GL_ARRAY_BUFFER, vegetationVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
@@ -157,6 +158,18 @@ int main()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // screen quad VAO
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
 
     ourShader.use();
@@ -188,22 +201,43 @@ int main()
 
     }
 
+    //NEW FRAMEBUFFER SETUP
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    // generate texture
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    // attach it to currently bound framebuffer object
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
 
-    //ourShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f)));
-    //ourShader.setFloat("light.outerCutOff", glm::cos(glm::radians(18.5f)));
+    //FRAMEBUFFER OBJECT
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
 
 
-    //ourShader.setInt("texture1", 0);
-    //ourShader.setInt("texture2", 1);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //MOUSE HIDE
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     while (!glfwWindowShouldClose(window))
     {
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -221,8 +255,8 @@ int main()
         view = camera.GetViewMatrix();
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
+        //Rotating cubes
         ourShader.use();
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuseMap);
         glActiveTexture(GL_TEXTURE1);
@@ -244,7 +278,6 @@ int main()
         //Light cubes render
         lightCubeShader.use();
         lightCubeShader.setVec3("lightColor", 1.0f, 0.5f, 0.5f);
-
         for (short i = 0; i < 4; ++i)
         {
             model = glm::mat4(1.0f);
@@ -259,29 +292,21 @@ int main()
         render_with_border(backpack, ourShader, lightCubeShader);
         
         //Opaque objects render (dont forget to sort)
-        glDisable(GL_CULL_FACE);
+        render_opaque_objects(vegetation, alphaShader, vegetationVAO, grassTexture);
+        
+        // second pass
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        std::map<float, glm::vec3> sorted;
-        for (unsigned int i = 0; i < vegetation.size(); i++)
-        {
-            float distance = glm::length(camera.Position - vegetation[i]);
-            sorted[distance] = vegetation[i];
-        }
+        screenShader.use();
 
-        alphaShader.use();
-        alphaShader.setInt("texture1", 0);
-        glBindVertexArray(vegetationVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, grassTexture);
-        for (std::map<float, glm::vec3>::reverse_iterator it = sorted.rbegin(); it != sorted.rend(); ++it)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, it->second);
-            setShaderMatrices(alphaShader, model, view, projection);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-        }
-        glEnable(GL_CULL_FACE);
+        glBindVertexArray(quadVAO);
+        glDisable(GL_DEPTH_TEST);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
+        glEnable(GL_DEPTH_TEST);
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
@@ -294,11 +319,39 @@ int main()
     glDeleteBuffers(1, &vegetationVBO);
     glDeleteBuffers(1, &EBO);
 
+    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteFramebuffers(1, &rbo);
+
     glfwTerminate();
 
     return 0;
 }
 
+void render_opaque_objects(vector<glm::vec3>& objects, Shader& alphaShader, unsigned int objectsVAO, unsigned int objectTexture)
+{
+    glDisable(GL_CULL_FACE);
+
+    std::map<float, glm::vec3> sorted;
+    for (unsigned int i = 0; i < objects.size(); i++)
+    {
+        float distance = glm::length(camera.Position - objects[i]);
+        sorted[distance] = objects[i];
+    }
+
+    alphaShader.use();
+    alphaShader.setInt("texture1", 0);
+    glBindVertexArray(objectsVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, objectTexture);
+    for (std::map<float, glm::vec3>::reverse_iterator it = sorted.rbegin(); it != sorted.rend(); ++it)
+    {
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, it->second);
+        setShaderMatrices(alphaShader, model, view, projection);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    glEnable(GL_CULL_FACE);
+}
 
 void render_with_border(Model& object, Shader& modelShader, Shader& borderShader)
 {

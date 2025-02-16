@@ -54,5 +54,7 @@
     <None Include="LightSource.frag" />
     <None Include="LightSource.vert" />
     <None Include="BasicFragmentShader.frag" />
+    <None Include="Framebuffer.vert" />
+    <None Include="Postprocess.frag" />
   </ItemGroup>
 </Project>

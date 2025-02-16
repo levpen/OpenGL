@@ -148,8 +148,10 @@
   <ItemGroup>
     <None Include="BasicFragmentShader.frag" />
     <None Include="FragmentShader.frag" />
+    <None Include="Framebuffer.vert" />
     <None Include="LightSource.frag" />
     <None Include="LightSource.vert" />
+    <None Include="Postprocess.frag" />
     <None Include="VertexShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
