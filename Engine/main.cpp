@@ -81,6 +81,9 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+    glEnable(GL_CULL_FACE);
+    //glCullFace(GL_FRONT);
+    //glFrontFace(GL_CCW);
 
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
@@ -256,6 +259,8 @@ int main()
         render_with_border(backpack, ourShader, lightCubeShader);
         
         //Opaque objects render (dont forget to sort)
+        glDisable(GL_CULL_FACE);
+
         std::map<float, glm::vec3> sorted;
         for (unsigned int i = 0; i < vegetation.size(); i++)
         {
@@ -275,6 +280,8 @@ int main()
             setShaderMatrices(alphaShader, model, view, projection);
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
+        glEnable(GL_CULL_FACE);
+
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
