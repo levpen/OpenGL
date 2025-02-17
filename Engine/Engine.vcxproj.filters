@@ -56,5 +56,10 @@
     <None Include="BasicFragmentShader.frag" />
     <None Include="Framebuffer.vert" />
     <None Include="Postprocess.frag" />
+    <None Include="Cubemap.vert" />
+    <None Include="Cubemap.frag" />
+    <None Include="Border.vert" />
+    <None Include="Reflection.frag" />
+    <None Include="Reflection.vert" />
   </ItemGroup>
 </Project>

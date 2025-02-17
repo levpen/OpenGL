@@ -23,7 +23,8 @@ glm::mat4 projection;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f);
 
-void render_with_border(Model& object, Shader& modelShader, Shader& borderShader);
+unsigned int loadCubemap(vector<std::string> faces);
+void render_with_border(Model& object, Shader& modelShader, Shader& borderShader, glm::vec3& color);
 
 void render_opaque_objects(vector<glm::vec3>& objects, Shader& alphaShader, unsigned int objectsVAO, unsigned int objectTexture);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -75,7 +76,7 @@ int main()
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    //glDepthFunc(GL_LEQUAL);
     glEnable(GL_STENCIL_TEST);
     //glStencilMask(0x00);
     //glStencilFunc(GL_EQUAL, 1, 0xFF);
@@ -104,8 +105,45 @@ int main()
 
     Shader ourShader("./VertexShader.vert", "./FragmentShader.frag");
     Shader lightCubeShader("./LightSource.vert", "./LightSource.frag");
+    Shader borderShader("./LightSource.vert", "./LightSource.frag");
     Shader alphaShader("./VertexShader.vert", "./BasicFragmentShader.frag");
     Shader screenShader("./Framebuffer.vert", "./Postprocess.frag");
+    Shader skyboxShader("./Cubemap.vert", "./Cubemap.frag");
+    Shader reflectionShader("./Reflection.vert", "./Reflection.frag");
+
+    { // Shaders configuration
+        ourShader.use();
+
+        //unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+        ourShader.setVec3("objectColor", 1.0f, 1.0f, 1.0f);
+
+        ourShader.setInt("material.specular", 1);
+        ourShader.setFloat("material.shininess", 64.0f);
+        ourShader.setInt("material.diffuse", 0);
+
+        ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        ourShader.setVec3("dirLight.diffuse", 0.5f, 1.0f, 0.5f); // darken diffuse light a bit
+        ourShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+        ourShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            auto str = "pointLights[" + std::to_string(i) + "].";
+            ourShader.setFloat(str + "constant", 1.0f);
+            ourShader.setFloat(str + "linear", 0.09f);
+            ourShader.setFloat(str + "quadratic", 0.032f);
+
+            ourShader.setVec3(str + "ambient", 0.2f, 0.2f, 0.2f);
+            ourShader.setVec3(str + "diffuse", 1.0f, 0.5f, 0.5f);
+            ourShader.setVec3(str + "specular", 1.0f, 1.0f, 1.0f);
+
+            ourShader.setVec3(str + "position", pointLightPositions[i]);
+        }
+        skyboxShader.use();
+        skyboxShader.setInt("skybox", 0);
+        reflectionShader.use();
+        reflectionShader.setInt("skybox", 0);
+    }
 
     Model backpack("./backpack/backpack.obj");
 
@@ -118,7 +156,7 @@ int main()
     glBindVertexArray(VAO);
     // 2. copy our vertices array in a buffer for OpenGL to use
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
     // 3. copy our index array in a element buffer for OpenGL to use
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
@@ -146,13 +184,25 @@ int main()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
 
+    //Reflection
+    unsigned int reflectionVAO;
+    glGenVertexArrays(1, &reflectionVAO);
+    glBindVertexArray(reflectionVAO);
+    // we only need to bind to the VBO, the container's VBO's data already contains the data.
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // set the vertex attribute 
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+
     //GrassSource
     unsigned vegetationVAO, vegetationVBO;
     glGenVertexArrays(1, &vegetationVAO);
     glGenBuffers(1, &vegetationVBO);
     glBindVertexArray(vegetationVAO);
     glBindBuffer(GL_ARRAY_BUFFER, vegetationVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), &quad, GL_STATIC_DRAW);
     stride = 5 * sizeof(float);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
@@ -170,36 +220,6 @@ int main()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-
-
-    ourShader.use();
-
-    //unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
-    ourShader.setVec3("objectColor", 1.0f, 1.0f, 1.0f);
-
-    ourShader.setInt("material.specular", 1);
-    ourShader.setFloat("material.shininess", 64.0f);
-    ourShader.setInt("material.diffuse", 0);
-
-    ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
-    ourShader.setVec3("dirLight.diffuse", 0.5f, 1.0f, 0.5f); // darken diffuse light a bit
-    ourShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
-    ourShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
-    
-    for (int i = 0; i < 4; ++i)
-    {
-        auto str = "pointLights[" + std::to_string(i) + "].";
-        ourShader.setFloat(str + "constant", 1.0f);
-        ourShader.setFloat(str +"linear", 0.09f);
-        ourShader.setFloat(str + "quadratic", 0.032f);
-
-        ourShader.setVec3(str + "ambient", 0.2f, 0.2f, 0.2f);
-        ourShader.setVec3(str + "diffuse", 1.0f, 0.5f, 0.5f);
-        ourShader.setVec3(str + "specular", 1.0f, 1.0f, 1.0f);
-
-        ourShader.setVec3(str + "position", pointLightPositions[i]);
-
-    }
 
     //NEW FRAMEBUFFER SETUP
     unsigned int framebuffer;
@@ -225,11 +245,30 @@ int main()
 
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-
-
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //CUBEMAP
+    vector<std::string> faces = 
+    {
+        "skybox/right.jpg",
+        "skybox/left.jpg",
+        "skybox/top.jpg",
+        "skybox/bottom.jpg",
+        "skybox/front.jpg",
+        "skybox/back.jpg"
+    };
+    unsigned int cubemapTexture = loadCubemap(faces);
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
 
     //MOUSE HIDE
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -245,6 +284,8 @@ int main()
         processInput(window);
         ourShader.setVec3("viewPos", camera.Position);
 
+
+        //RENDERING
         // rendering commands here
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -254,6 +295,8 @@ int main()
         model = glm::mat4(1.0f);
         view = camera.GetViewMatrix();
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+        
 
         //Rotating cubes
         ourShader.use();
@@ -288,9 +331,34 @@ int main()
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
+        //Reflection cube
+        reflectionShader.use();
+        reflectionShader.setVec3("cameraPos", camera.Position);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(1.0, 2.0, 1.0));
+        //reflectionShader.setMat3("normalMat", computeNormalMat(model));
+        setShaderMatrices(reflectionShader, model, view, projection);
+        glBindVertexArray(reflectionVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+
         //Backpack render
-        render_with_border(backpack, ourShader, lightCubeShader);
-        
+        auto borderColor = glm::vec3(1.0, 1.0, 0.0);
+        render_with_border(backpack, ourShader, borderShader, borderColor);
+
+        //Skybox
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader.use();
+        auto cubemapView = glm::mat4(glm::mat3(view));
+        setShaderMatrices(skyboxShader, model, cubemapView, projection);
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDepthFunc(GL_LESS); // set depth function back to default
+
         //Opaque objects render (dont forget to sort)
         render_opaque_objects(vegetation, alphaShader, vegetationVAO, grassTexture);
         
@@ -327,6 +395,41 @@ int main()
     return 0;
 }
 
+unsigned int loadCubemap(vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(false);
+
+    for (unsigned int i = 0; i < faces.size(); i++)
+    {
+
+        unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
+
 void render_opaque_objects(vector<glm::vec3>& objects, Shader& alphaShader, unsigned int objectsVAO, unsigned int objectTexture)
 {
     glDisable(GL_CULL_FACE);
@@ -353,7 +456,7 @@ void render_opaque_objects(vector<glm::vec3>& objects, Shader& alphaShader, unsi
     glEnable(GL_CULL_FACE);
 }
 
-void render_with_border(Model& object, Shader& modelShader, Shader& borderShader)
+void render_with_border(Model& object, Shader& modelShader, Shader& borderShader, glm::vec3& color)
 {
     modelShader.use();
 
@@ -371,16 +474,18 @@ void render_with_border(Model& object, Shader& modelShader, Shader& borderShader
 
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilMask(0x00); // disable writing to the stencil buffer
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     borderShader.use();
+    borderShader.setVec3("lightColor", color);
     model = glm::scale(model, glm::vec3(1.1f));
     modelShader.setMat4("model", model);
+    setShaderMatrices(borderShader, model, view, projection);
 
     object.Draw(borderShader);
 
     glStencilMask(0xFF);
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glEnable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -394,14 +499,17 @@ void processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    //Shift
+    bool boost = false | (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
+    //Movement
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
+        camera.ProcessKeyboard(FORWARD, deltaTime, boost);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
+        camera.ProcessKeyboard(BACKWARD, deltaTime, boost);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
+        camera.ProcessKeyboard(LEFT, deltaTime, boost);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+        camera.ProcessKeyboard(RIGHT, deltaTime, boost);
 }
 
 unsigned int texturePreparation(std::string img_source, bool rgb, const int GL_TEXTURE_NUM, bool has_alpha)
