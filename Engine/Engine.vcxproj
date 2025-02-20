@@ -150,14 +150,21 @@
     <None Include="Border.vert" />
     <None Include="Cubemap.frag" />
     <None Include="Cubemap.vert" />
+    <None Include="Explode.geom" />
     <None Include="FragmentShader.frag" />
     <None Include="Framebuffer.vert" />
+    <None Include="Geomerty.geom" />
     <None Include="LightSource.frag" />
     <None Include="LightSource.vert" />
+    <None Include="Model.vert" />
+    <None Include="Mono.frag" />
+    <None Include="Normals.geom" />
     <None Include="Postprocess.frag" />
     <None Include="Reflection.frag" />
     <None Include="Reflection.vert" />
     <None Include="VertexShader.vert" />
+    <None Include="XY.vert" />
+    <None Include="Yellow.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
