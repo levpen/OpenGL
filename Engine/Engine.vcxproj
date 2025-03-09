@@ -146,6 +146,7 @@
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Asteroids.frag" />
     <None Include="BasicFragmentShader.frag" />
     <None Include="Border.vert" />
     <None Include="Cubemap.frag" />
@@ -154,6 +155,7 @@
     <None Include="FragmentShader.frag" />
     <None Include="Framebuffer.vert" />
     <None Include="Geomerty.geom" />
+    <None Include="Instancing.vert" />
     <None Include="LightSource.frag" />
     <None Include="LightSource.vert" />
     <None Include="Model.vert" />

@@ -28,5 +28,6 @@ public:
     void setMat3(const std::string& name, glm::mat3 value) const;
     void setVec3(const std::string& name, float x, float y, float z) const;
     void setVec3(const std::string& name, glm::vec3 vec) const;
+    void setVec2(const std::string& name, glm::vec2 vec) const;
     ~Shader();
 };

@@ -245,3 +245,14 @@ float points[] = {
      0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // bottom-right
     -0.5f, -0.5f, 1.0f, 1.0f, 0.0f  // bottom-left
 };
+
+float quadInstanceVertices[] = {
+    // positions     // colors
+    -0.05f,  0.05f,  1.0f, 0.0f, 0.0f,
+    -0.05f, -0.05f,  0.0f, 0.0f, 1.0f,
+     0.05f, -0.05f,  0.0f, 1.0f, 0.0f,
+
+    -0.05f,  0.05f,  1.0f, 0.0f, 0.0f,
+     0.05f, -0.05f,  0.0f, 1.0f, 0.0f,
+     0.05f,  0.05f,  0.0f, 1.0f, 1.0f
+};

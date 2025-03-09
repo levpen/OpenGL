@@ -68,5 +68,7 @@
     <None Include="Normals.geom" />
     <None Include="Yellow.frag" />
     <None Include="Model.vert" />
+    <None Include="Instancing.vert" />
+    <None Include="Asteroids.frag" />
   </ItemGroup>
 </Project>
